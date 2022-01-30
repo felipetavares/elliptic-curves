@@ -1,0 +1,89 @@
+#+TITLE: EC Diffie-Hellman
+#+AUTHOR: Felipe Tavares
+
+#+OPTIONS: toc:nil
+#+OPTIONS: num:nil
+
+* Elliptic Curve Diffie Hellman
+:properties:
+:header-args: :eval no-export :tangle yes
+:end:
+
+Add the current directory to the load path:
+
+#+begin_src julia
+push!(LOAD_PATH, pwd())
+#+end_src
+
+Next, we import the elliptic curve primitives:
+
+#+begin_src julia
+using Random: RandomDevice
+using EllipticCurves: ECPoint
+#+end_src
+
+Lets use that to setup the domain parameters for the curve we want to create. In
+this case it will be the [[https://neuromancer.sk/std/secg/secp256r1][secp256r1]]. It will return the /generator point/, which
+in our primitives library actually describes all the domain parameters for the
+elliptic curve in that point.
+
+#+begin_src julia
+function secp256r1_generator()::ECPoint
+    p::BigInt = 0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff; 
+    a::BigInt = 0xffffffff00000001000000000000000000000000fffffffffffffffffffffffc; 
+    b::BigInt = 0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b;
+
+    ECPoint(
+        (0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296,
+         0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5),
+        (a, b, p)
+    )
+end
+#+end_src
+
+And finally we can jump into an actual /ECDH/ example.
+
+#+begin_src julia
+function ecdh_example()
+    G = secp256r1_generator()
+    n::BigInt = 0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551;
+#+end_src
+
+Here we use a the /OS/ to gather entropy for generating our private keys.
+
+#+begin_src julia
+    rng = RandomDevice()
+
+    alice_secret = rand(rng, 1:n-1)
+    bob_secret = rand(rng, 1:n-1)
+
+    alice_public = alice_secret*G
+    bob_public = bob_secret*G
+
+    alice_shared = alice_secret*bob_public
+    bob_shared = bob_secret*alice_public
+
+   (alice_shared, bob_shared)
+end
+#+end_src
+
+Here we just did the key aspect of /DH/. Given \(G\), the generator point,
+\(d_a\) Alice's private key, \(d_b\) Bob's, \(Q_a\) Alice's public key and
+\(Q_b\) Bob's, we can write the following expression:
+
+$$d_a G d_b = (d_a G)d_b = d_a (G d_b) = Q_a d_b = d_a Q_b$$
+
+Which means that there's a constant that both Alice and Bob can create without
+needing to know each other's private keys, only their own and the other's public
+key.
+
+We can verify if it really works:
+
+#+begin_src julia :exports both
+(sa, sb) = ecdh_example()
+
+println(sa, " = ", sb)
+#+end_src
+
+#+RESULTS:
+: ECPoint((89850665362639501943249119555466581025000289108198318723456336370329225391718, 21704403568703052894430578732813225346669451309091023951163766017048515038929), EllipticCurves.EC(115792089210356248762697446949407573530086143415290314195533631308867097853948, 41058363725152142129326129780047268409114441015993725554835256314039467401291, 115792089210356248762697446949407573530086143415290314195533631308867097853951)) = ECPoint((89850665362639501943249119555466581025000289108198318723456336370329225391718, 21704403568703052894430578732813225346669451309091023951163766017048515038929), EllipticCurves.EC(115792089210356248762697446949407573530086143415290314195533631308867097853948, 41058363725152142129326129780047268409114441015993725554835256314039467401291, 115792089210356248762697446949407573530086143415290314195533631308867097853951))
