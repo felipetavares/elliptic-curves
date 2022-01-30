@@ -39,12 +39,16 @@ function (+)(a::ECAlgebraPoint, b::ECAlgebraPoint)::ECAlgebraPoint
     p = ec.p
 
     if a == b
+        if y₁ == 0 return O end
+
         λ = @galois(p, (3*x₁*x₁ + a.ec.a) / (2y₁))
         x = @galois(p, λ*λ-2*x₁)
         y = @galois(p, (x₁-x)λ-y₁)
 
         ECPoint((x, y), ec)
     else
+        if x₁ == x₂ return O end
+
         λ = @galois(p, (y₂-y₁) / (x₂-x₁))
         x = @galois(p, λ*λ-x₁-x₂)
         y = @galois(p, (x₁-x)λ-y₁)
